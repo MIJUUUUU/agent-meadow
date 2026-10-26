@@ -49,7 +49,7 @@
         const inspect=()=>{if(!m.data.demo)api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
         m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
       }
-      m.data=p;m.el.className='pet '+p.state+(p.demo?' demo':'');m.bubble.textContent=p.message;m.name.textContent=p.name;
+      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.demo?' demo':'');m.bubble.textContent=p.message;m.name.textContent=p.name;
       m.bubble.setAttribute('aria-label',p.name+': '+p.message+(p.demo?' 데모':' · 작업 확인'));
     }
     document.getElementById('empty').style.display=pets.length?'none':'flex';
@@ -59,9 +59,10 @@
   function frame(t){
     const dt=Math.min((t-last)/1000,.1);last=t;
     if(visible)for(const m of models.values()){
-      const max=Math.max(0,root.clientWidth-170);
-      if(m.data.state==='idle'&&!reduced){m.x+=m.direction*dt*12;if(m.x<=0||m.x>=max)m.direction*=-1;}
-      m.x=Math.max(0,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
+      const lane=Math.max(210,root.clientWidth/Math.max(1,models.size));
+      const min=m.index*lane+15, max=(m.index+1)*lane-185;
+      if(m.data.state==='idle'&&!reduced){m.x+=m.direction*dt*12;if(m.x<=min||m.x>=max)m.direction*=-1;}
+      m.x=Math.max(min,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
       draw(m.canvas,m.data.provider,m.data.state,t);
     }
     requestAnimationFrame(frame);
