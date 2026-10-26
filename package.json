@@ -1,20 +1,86 @@
 {
-  "name": "agent-meadow", "displayName": "Agent Meadow · 에이전트 정원", "description": "Codex 토끼와 Claude 고양이가 함께 사는 작은 도트 정원", "version": "0.1.0", "publisher": "agent-meadow-local", "license": "MIT", "engines": {"vscode": "^1.95.0"}, "categories": ["Other"], "main": "./src/extension.js", "activationEvents": ["onStartupFinished"],
-  "capabilities": {"untrustedWorkspaces": {"supported": false}, "virtualWorkspaces": false},
+  "name": "agent-meadow",
+  "displayName": "Agent Meadow · 에이전트 정원",
+  "description": "Codex 토끼와 Claude 고양이가 함께 사는 작은 도트 정원",
+  "version": "0.1.4",
+  "publisher": "agent-meadow-local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
+  },
   "contributes": {
     "commands": [
-      {"command":"agentMeadow.open","title":"Agent Meadow: 정원 열기"},
-      {"command":"agentMeadow.codex","title":"Agent Meadow: Codex 작업 시작"},
-      {"command":"agentMeadow.claude","title":"Agent Meadow: Claude Code 시작"},
-      {"command":"agentMeadow.demo","title":"Agent Meadow: 데모 켜기 / 끄기"}
+      {
+        "command": "agentMeadow.open",
+        "title": "Agent Meadow: 정원 열기"
+      },
+      {
+        "command": "agentMeadow.codex",
+        "title": "Agent Meadow: Codex 작업 시작"
+      },
+      {
+        "command": "agentMeadow.claude",
+        "title": "Agent Meadow: Claude Code 시작"
+      },
+      {
+        "command": "agentMeadow.demo",
+        "title": "Agent Meadow: 데모 켜기 / 끄기"
+      }
     ],
-    "viewsContainers":{"panel":[{"id":"agentMeadow","title":"Agent Meadow","icon":"media/icon.svg"}]},
-    "views":{"agentMeadow":[{"id":"agentMeadow.garden","name":"작은 에이전트 정원","type":"webview"}]},
-    "configuration":{"title":"Agent Meadow","properties":{
-      "agentMeadow.codexPath":{"type":"string","default":"codex","description":"Codex CLI 실행 파일의 경로"},
-      "agentMeadow.claudePath":{"type":"string","default":"claude","description":"Claude Code 실행 파일의 경로"},
-      "agentMeadow.nativeNotifications":{"type":"boolean","default":true,"description":"macOS에서 창이 비활성화되어 있을 때 시스템 알림 표시"}
-    }}
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "agentMeadow",
+          "title": "Agent Meadow",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentMeadow": [
+        {
+          "id": "agentMeadow.garden",
+          "name": "작은 에이전트 정원",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Agent Meadow",
+      "properties": {
+        "agentMeadow.codexPath": {
+          "type": "string",
+          "default": "codex",
+          "description": "Codex CLI 실행 파일의 경로"
+        },
+        "agentMeadow.claudePath": {
+          "type": "string",
+          "default": "claude",
+          "description": "Claude Code 실행 파일의 경로"
+        },
+        "agentMeadow.nativeNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "macOS에서 창이 비활성화되어 있을 때 시스템 알림 표시"
+        }
+      }
+    }
   },
-  "scripts":{"test":"node --test test/*.test.js","package":"python3 scripts/package.py"}
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "python3 scripts/package.py"
+  }
 }
