@@ -1,6 +1,8 @@
-# Agent Meadow · 작은 에이전트 정원
+![Agent Meadow — 도트 토끼와 고양이의 작은 정원](docs/images/agent-meadow-thumbnail-dark.png)
 
-VS Code 하단 패널에서 Codex 토끼와 Claude 고양이가 작업하고, 생각하고, 산책하고, 잠들어요. 사용자 선택을 기다리면 분홍 말풍선으로 알려 줍니다. 외부 이미지·서버·npm 런타임 의존성이 없습니다.
+# Agent Meadow · AI 에이전트의 작업 상태를 보여주는 VS Code 도트 펫
+
+Codex와 Claude Code의 작업 상태를 도트 캐릭터로 보여주는 VS Code 확장 프로그램입니다. 하단 패널의 캐릭터가 작업·대기·완료 상태를 표현하고, 승인이나 답변이 필요하면 말풍선과 알림으로 알려 줍니다.
 
 ## 설치
 
