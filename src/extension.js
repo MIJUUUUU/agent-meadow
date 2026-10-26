@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const {spawn} = require('node:child_process');
 const {Codex} = require('./codex');
 const {claudeState} = require('./state');
+const {removeFamily} = require('./lifecycle');
 const quote = s => "'" + s.replace(/'/g, "'\\''") + "'";
 function activate(context) {
   const pets = new Map(), clients = new Map(), terminals = new Map(), requests = new Map(), queues = new Map(), restTimers = new Map();
@@ -17,6 +18,13 @@ function activate(context) {
   const publish = () => {view?.webview.postMessage({type:'state',pets:[...pets.values()]}); status.text = '$(heart) Meadow'+([...pets.values()].some(p=>p.state==='waiting') ? ' · 확인 필요' : '');};
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 20);
   status.command = 'agentMeadow.open'; status.tooltip = '작은 에이전트 정원'; status.show();
+  function remove(id) {
+    removeFamily(pets,id,key=>{
+      clearTimeout(restTimers.get(key));restTimers.delete(key);
+      requests.delete(key);queues.delete(key);
+    });
+    publish();
+  }
   function update(id, provider, state, message, extra={}) {
     const previous = pets.get(id);
     pets.set(id,{id,provider,name:provider==='codex'?'Codex':'Claude',...previous,state,message,...extra}); publish();
@@ -96,7 +104,9 @@ function activate(context) {
         if(!parent) {res.writeHead(400).end();return;}
         const state=claudeState(e);
         const id=e.agent_id ? parent+':'+String(e.agent_id).slice(0,100) : parent;
-        if(state) update(id,'claude',...state,{parent,name:e.agent_id?'Claude 도우미':'Claude'});
+        if(e.hook_event_name==='SessionEnd') remove(parent);
+        else if(e.hook_event_name==='SubagentStop' && e.agent_id) remove(id);
+        else if(state) update(id,'claude',...state,{parent:id===parent?undefined:parent,name:e.agent_id?'Claude 도우미':'Claude'});
         res.writeHead(204).end();
       } catch {res.writeHead(400).end();}
     });
@@ -153,8 +163,14 @@ function activate(context) {
           if(!requests.has(id)) update(id,'codex',p.item?.type==='reasoning'?'thinking':'working',p.item?.type==='commandExecution'?'명령을 실행하는 중':p.item?.type==='fileChange'?'코드를 다듬는 중':'작업하고 있어요');
         }
         if(msg.method==='serverRequest/resolved') resolveRequest(id,p.requestId);
-        if(msg.method==='turn/completed') {requests.delete(id);queues.delete(id);update(id,'codex',p.turn?.status==='completed'?'done':'idle',p.turn?.status==='completed'?'다 했어요!':'작업이 중단됐어요. 로그를 확인해 주세요');}
-        if(msg.method==='meadow/disconnected') {requests.delete(id);queues.delete(id);clients.delete(id);update(id,'codex','sleeping','연결이 종료됐어요');}
+        if(msg.method==='turn/completed') {
+          requests.delete(id);queues.delete(id);
+          update(id,'codex',p.turn?.status==='completed'?'done':'idle',p.turn?.status==='completed'?'다 했어요!':'작업이 중단됐어요. 로그를 확인해 주세요');
+          // This UI starts one-shot Codex tasks. Release their process after showing the result.
+          clearTimeout(restTimers.get(id));
+          restTimers.set(id,setTimeout(()=>{remove(id);client.dispose();},12000));
+        }
+        if(msg.method==='meadow/disconnected') {clients.delete(id);remove(id);}
       },s=>output.append(s));
       clients.set(id,client);update(id,'codex','thinking','연결하는 중…');
       try {
@@ -169,7 +185,7 @@ function activate(context) {
       const states=[['idle','산책하기 좋은 날이에요'],['thinking','생각을 모으는 중…'],['working','로그인 화면 만드는 중!'],['waiting','계획을 확인해 주세요!'],['done','다 했어요!'],['sleeping','잠깐 쉬는 중…']];let n=0;
       const tick=()=>{for(const [i,p] of ['codex','claude'].entries()) update('demo-'+p,p,...states[(n+i*3)%states.length],{demo:true});n++;};tick();demo=setInterval(tick,6500);
     }),
-    vscode.window.onDidCloseTerminal(t=>{for(const [id,term] of terminals) if(term===t){terminals.delete(id);for(const p of pets.values())if(p.id===id||p.parent===id)update(p.id,'claude','sleeping','연결이 종료됐어요');}}),
+    vscode.window.onDidCloseTerminal(t=>{for(const [id,term] of terminals) if(term===t){terminals.delete(id);remove(id);}}),
     {dispose(){clearInterval(demo);for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
   );
   publish();
