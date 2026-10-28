@@ -46,14 +46,14 @@
       if(!m){
         const el=document.createElement('div'), bubble=document.createElement('button'), canvas=document.createElement('canvas'), name=document.createElement('span');
         bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.setAttribute('aria-hidden','true');name.className='name';el.append(bubble,canvas,name);root.append(el);
-        const inspect=()=>{if(!m.data.demo)api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
+        const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
         m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
       }
-      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.demo?' demo':'');m.bubble.textContent=p.message;m.name.textContent=p.name;
-      m.bubble.setAttribute('aria-label',p.name+': '+p.message+(p.demo?' 데모':' · 작업 확인'));
+      m.index=i;m.data=p;m.el.className='pet '+p.state;m.bubble.textContent=p.message;m.name.textContent=p.name+(p.task?'\n'+p.task:'');m.name.title=p.name+(p.task?' · '+p.task:'');
+      m.bubble.setAttribute('aria-label',p.name+': '+p.message+' · 작업 확인');
     }
     document.getElementById('empty').style.display=pets.length?'none':'flex';
-    const waiting=pets.filter(p=>p.state==='waiting'&&!p.demo).length;
+    const waiting=pets.filter(p=>p.state==='waiting').length;
     document.getElementById('count').textContent=pets.length?`${pets.length}명의 작은 동료${waiting?' · '+waiting+'명이 확인을 기다려요':''}`:'아직 연결된 동료가 없어요';
   }
   function frame(t){

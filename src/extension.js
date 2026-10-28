@@ -8,12 +8,32 @@ const {spawn} = require('node:child_process');
 const {Codex} = require('./codex');
 const {claudeState} = require('./state');
 const {removeFamily} = require('./lifecycle');
+const {projectDirectory} = require('./project');
+const {taskLabel} = require('./labels');
 const quote = s => "'" + s.replace(/'/g, "'\\''") + "'";
 function activate(context) {
   const pets = new Map(), clients = new Map(), terminals = new Map(), requests = new Map(), queues = new Map(), restTimers = new Map();
   const token = crypto.randomBytes(32).toString('hex');
   const output = vscode.window.createOutputChannel('Agent Meadow');
-  let view, demo, port;
+  let view, port;
+  const names = new Map();
+  async function selectProject() {
+    const active = vscode.window.activeTextEditor?.document.uri;
+    let folder = active && vscode.workspace.getWorkspaceFolder(active);
+    if (!folder) {
+      const folders = vscode.workspace.workspaceFolders || [];
+      if (!folders.length) throw new Error('먼저 작업 폴더를 열어 주세요.');
+      folder = folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick({placeHolder:'에이전트가 작업할 프로젝트를 선택하세요'});
+    }
+    if (!folder) return;
+    const cwd = projectDirectory(folder.uri.fsPath,active?.scheme==='file'?active.fsPath:undefined);
+    return {cwd, project:path.basename(cwd)};
+  }
+  function sessionName(provider, project, cwd) {
+    const key=provider+':'+cwd;
+    const count=(names.get(key)||0)+1;names.set(key,count);
+    return `${provider==='codex'?'Codex':'Claude'} · ${project}${count>1?' #'+count:''}`;
+  }
   const config = () => vscode.workspace.getConfiguration('agentMeadow');
   const publish = () => {view?.webview.postMessage({type:'state',pets:[...pets.values()]}); status.text = '$(heart) Meadow'+([...pets.values()].some(p=>p.state==='waiting') ? ' · 확인 필요' : '');};
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 20);
@@ -29,8 +49,8 @@ function activate(context) {
     const previous = pets.get(id);
     pets.set(id,{id,provider,name:provider==='codex'?'Codex':'Claude',...previous,state,message,...extra}); publish();
     clearTimeout(restTimers.get(id)); restTimers.delete(id);
-    if (state === 'done' && !extra.demo) restTimers.set(id,setTimeout(()=>{restTimers.delete(id);if(pets.get(id)?.state==='done')update(id,provider,'sleeping','잠깐 쉬고 있어요…');},12000));
-    if (state === 'waiting' && previous?.state !== 'waiting' && !extra.demo) {
+    if (state === 'done') restTimers.set(id,setTimeout(()=>{restTimers.delete(id);if(pets.get(id)?.state==='done')update(id,provider,'sleeping','잠깐 쉬고 있어요…');},12000));
+    if (state === 'waiting' && previous?.state !== 'waiting') {
       vscode.window.showInformationMessage(`${provider==='codex'?'Codex':'Claude'}: ${message}`, '확인하기').then(v=>{if(v) inspect(id);});
       if (!vscode.window.state.focused && config().get('nativeNotifications') && process.platform === 'darwin') {
         // Constant text; never interpolates model output into AppleScript.
@@ -89,7 +109,7 @@ function activate(context) {
       try {
         if(m.type==='ready') publish();
         if(m.type==='inspect' && pets.has(m.id)) await inspect(m.id);
-        if(m.type==='command' && ['codex','claude','demo'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
+        if(m.type==='command' && ['codex','claude'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
       } catch(e) {vscode.window.showErrorMessage(e.message);}
     },null,context.subscriptions);
   }};
@@ -106,7 +126,13 @@ function activate(context) {
         const id=e.agent_id ? parent+':'+String(e.agent_id).slice(0,100) : parent;
         if(e.hook_event_name==='SessionEnd') remove(parent);
         else if(e.hook_event_name==='SubagentStop' && e.agent_id) remove(id);
-        else if(state) update(id,'claude',...state,{parent:id===parent?undefined:parent,name:e.agent_id?'Claude 도우미':'Claude'});
+        else if(state) {
+          const owner=pets.get(parent);
+          const task=e.agent_id
+            ? taskLabel(e.agent_type,pets.get(id)?.task||'도우미')
+            : e.hook_event_name==='UserPromptSubmit'?taskLabel(e.task_label):owner?.task||'작업 대기';
+          update(id,'claude',...state,{parent:id===parent?undefined:parent,project:owner?.project,task,name:e.agent_id?`${owner?.name||'Claude'} · ${String(e.agent_id).slice(0,6)}`:owner?.name||'Claude'});
+        }
         res.writeHead(204).end();
       } catch {res.writeHead(400).end();}
     });
@@ -119,8 +145,9 @@ function activate(context) {
     register('claude',async()=>{
       if(!vscode.workspace.isTrusted) return;
       await listening;
-      const cwd=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if(!cwd) throw new Error('먼저 작업 폴더를 열어 주세요.');
+      const selected=await selectProject();if(!selected)return;
+      const {cwd,project}=selected;
+      const name=sessionName('claude',project,cwd);
       const id='claude-'+crypto.randomUUID();
       const hook=path.join(context.extensionPath,'scripts/claude-hook.js');
       const command=process.platform==='win32' ? '"'+process.execPath+'" "'+hook+'"' : 'ELECTRON_RUN_AS_NODE=1 '+quote(process.execPath)+' '+quote(hook);
@@ -132,14 +159,14 @@ function activate(context) {
       const configured=config().get('claudePath');
       const fallback=path.join(require('node:os').homedir(),'.local/bin/claude');
       const binary=configured==='claude' && fs.existsSync(fallback) ? fallback : configured;
-      const terminal=vscode.window.createTerminal({name:'Claude · Meadow',cwd,shellPath:binary,shellArgs:['--settings',file],env:{MEADOW_PORT:String(port),MEADOW_TOKEN:token,MEADOW_SESSION:id,ELECTRON_RUN_AS_NODE:'1'}});
-      terminals.set(id,terminal);update(id,'claude','idle','연결을 기다리고 있어요');terminal.show();
+      const terminal=vscode.window.createTerminal({name,cwd,shellPath:binary,shellArgs:['--settings',file],env:{MEADOW_PORT:String(port),MEADOW_TOKEN:token,MEADOW_SESSION:id,ELECTRON_RUN_AS_NODE:'1'}});
+      terminals.set(id,terminal);update(id,'claude','idle','연결을 기다리고 있어요',{name,project,task:'작업 대기'});terminal.show();
       context.subscriptions.push({dispose(){terminal.dispose();fs.promises.unlink(file).catch(()=>{});}});
     }),
     register('codex',async()=>{
       if(!vscode.workspace.isTrusted) return;
-      const cwd=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if(!cwd) throw new Error('먼저 작업 폴더를 열어 주세요.');
+      const selected=await selectProject();if(!selected)return;
+      const {cwd,project}=selected;
       const prompt=await vscode.window.showInputBox({title:'Codex 토끼에게 부탁하기',prompt:'이 폴더에서 어떤 작업을 할까요?',ignoreFocusOut:true});
       if(!prompt?.trim()) return;
       const id='codex-'+crypto.randomUUID();
@@ -172,7 +199,7 @@ function activate(context) {
         }
         if(msg.method==='meadow/disconnected') {clients.delete(id);remove(id);}
       },s=>output.append(s));
-      clients.set(id,client);update(id,'codex','thinking','연결하는 중…');
+      clients.set(id,client);update(id,'codex','thinking','연결하는 중…',{project,task:taskLabel(prompt),name:sessionName('codex',project,cwd)});
       try {
         await client.init();
         const {thread}=await client.request('thread/start',{cwd,approvalPolicy:'on-request',sandbox:'workspace-write'});
@@ -180,13 +207,8 @@ function activate(context) {
         await vscode.commands.executeCommand('agentMeadow.open');
       } catch(e) {client.dispose();throw e;}
     }),
-    register('demo',()=>{
-      if(demo) {clearInterval(demo);demo=null;pets.delete('demo-codex');pets.delete('demo-claude');publish();return;}
-      const states=[['idle','산책하기 좋은 날이에요'],['thinking','생각을 모으는 중…'],['working','로그인 화면 만드는 중!'],['waiting','계획을 확인해 주세요!'],['done','다 했어요!'],['sleeping','잠깐 쉬는 중…']];let n=0;
-      const tick=()=>{for(const [i,p] of ['codex','claude'].entries()) update('demo-'+p,p,...states[(n+i*3)%states.length],{demo:true});n++;};tick();demo=setInterval(tick,6500);
-    }),
     vscode.window.onDidCloseTerminal(t=>{for(const [id,term] of terminals) if(term===t){terminals.delete(id);remove(id);}}),
-    {dispose(){clearInterval(demo);for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
+    {dispose(){for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
   );
   publish();
 }
