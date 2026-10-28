@@ -7,11 +7,17 @@ Codex와 Claude Code의 작업 상태를 도트 캐릭터로 보여주는 VS Cod
 ## 설치
 
 1. VS Code에서 명령 팔레트 (`⌘⇧P`) → **Extensions: Install from VSIX…**.
-2. `dist/agent-meadow-0.1.4.vsix` 선택.
+2. `dist/agent-meadow-0.1.7.vsix` 선택.
 3. 작업 폴더를 열고 **Agent Meadow: 정원 열기** 실행.
-4. **데모**로 캐릭터를 먼저 만나거나 **＋ Codex / ＋ Claude**로 실제 작업을 시작하세요.
+4. **＋ Codex / ＋ Claude**로 실제 작업을 시작하세요. 추가한 세션과 해당 세션의 도우미만 표시됩니다.
 
-패널은 터미널과 같은 하단 영역에 나타납니다. 패널의 위쪽 경계를 내려 작은 띠처럼 사용할 수 있습니다. 상태 표시줄 위의 전용 패널이며, 에디터나 다른 앱 위를 떠다니는 오버레이는 아닙니다. 데모는 명확히 DEMO로 표시되며 실제 승인 요청이나 시스템 알림을 보내지 않습니다.
+패널은 터미널과 같은 하단 영역에 나타납니다. 패널의 위쪽 경계를 내려 작은 띠처럼 사용할 수 있습니다. 상태 표시줄 위의 전용 패널이며, 에디터나 다른 앱 위를 떠다니는 오버레이는 아닙니다. 데모 버튼과 가상 캐릭터는 없습니다. 위 스크린샷은 이전 버전의 화면입니다.
+
+## 프로젝트 이름
+
+캐릭터 이름은 `Claude · agent-meadow`처럼 실행 프로젝트 폴더명을 표시합니다. 같은 프로젝트에서 같은 종류를 추가하면 `#2`, `#3` 번호가 붙습니다. 열린 파일에서 가장 가까운 Git·Node·Python 등의 프로젝트 루트를 찾고, 없으면 작업 폴더를 사용합니다. 여러 작업 폴더 중 현재 파일로 판단할 수 없으면 선택 창을 표시합니다. 이름이 길면 줄여 표시하며 마우스를 올리면 전체 이름을 볼 수 있습니다.
+
+프로젝트명 아래에 현재 작업도 표시합니다. Codex는 입력한 요청, Claude는 가장 최근 요청의 첫 줄을 짧게 표시하고, Claude 도우미는 제공된 역할명(예: Explore, Plan)을 표시합니다. 이는 AI가 추론한 요약이 아닌 요청 미리보기이며, 긴 내용은 24자에서 줄입니다.
 
 ## 에이전트 자동 추가·정리
 
@@ -48,10 +54,10 @@ Codex CLI가 설치·로그인되어 있어야 합니다. `agentMeadow.codexPath
 
 이 폴더를 VS Code에서 열고 F5 → Extension Development Host. Node 20 이상이면 `npm test` (외부 설치 없음), Python 3이면 `python3 scripts/package.py`로 VSIX를 생성합니다.
 
-데이터 수집이나 분석 전송은 없습니다. Claude 이벤트 수신기는 임의 포트의 `127.0.0.1`에만 바인딩하고 실행 인스턴스별 인증 토큰과 세션 ID를 검사합니다. Hook은 프롬프트/명령 본문을 보내지 않습니다. Codex 출력은 VS Code 출력 창에 표시됩니다. 실제 모델 사용은 각 도구의 로그인·사용량 정책을 따릅니다.
+데이터 수집이나 분석 전송은 없습니다. Claude 이벤트 수신기는 임의 포트의 `127.0.0.1`에만 바인딩하고 실행 인스턴스별 인증 토큰과 세션 ID를 검사합니다. Hook은 작업 이름 표시를 위해 사용자 요청의 첫 줄을 최대 24자까지 로컬 수신기에 전달합니다. 명령 본문이나 전체 프롬프트는 전달하지 않습니다. Codex 출력은 VS Code 출력 창에 표시됩니다. 실제 모델 사용은 각 도구의 로그인·사용량 정책을 따릅니다.
 
 참고: [Codex App Server](https://learn.chatgpt.com/docs/app-server), [Claude Code Hooks](https://code.claude.com/docs/en/hooks), [VS Code Webview](https://code.visualstudio.com/api/extension-guides/webview).
 
 ## 이번 빌드의 검증 범위
 
-상태 전환 3개, 실제 로컬 HTTP Hook 전달 1개, 모의 Codex 서버 왕복 통신 1개 테스트가 통과했습니다. JavaScript 구문 검사도 통과했습니다. 실제 VS Code 화면 렌더링, 로그인된 Codex/Claude의 모델 실행, macOS 알림 전달은 이 환경에서 아직 검증하지 않았습니다. `dist/preview.html`은 브라우저에서 열 수 있는 독립 애니메이션 데모입니다.
+상태 전환 3개, 실제 로컬 HTTP Hook 전달 1개, 모의 Codex 서버 왕복 통신 1개 테스트가 통과했습니다. JavaScript 구문 검사도 통과했습니다. 실제 VS Code 화면 렌더링, 로그인된 Codex/Claude의 모델 실행, macOS 알림 전달은 이 환경에서 아직 검증하지 않았습니다. `dist/preview.html`은 브라우저에서 열 수 있는 빈 화면 디자인 미리보기입니다.
