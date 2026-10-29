@@ -49,7 +49,7 @@
         const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
         m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
       }
-      m.index=i;m.data=p;m.el.className='pet '+p.state;m.bubble.textContent=p.message;m.name.textContent=p.name+(p.task?'\n'+p.task:'');m.name.title=p.name+(p.task?' · '+p.task:'');
+      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
       m.bubble.setAttribute('aria-label',p.name+': '+p.message+' · 작업 확인');
     }
     document.getElementById('empty').style.display=pets.length?'none':'flex';

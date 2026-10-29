@@ -26,9 +26,17 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 /* Project and task are separate lines so agents can be distinguished. */
 .pet canvas{margin-bottom:18px}
 .name{white-space:pre-line;text-align:center;line-height:13px;max-height:28px}
+
+.pet.observed .name{border-left:2px solid #8aafd1}
+@media(max-width:400px){nav button{font-size:10px;padding:5px}}
+
+/* Each label has its own line; long project names cannot hide the task. */
+.name{width:165px;white-space:normal;max-height:none}
+.agent-title,.agent-task{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-task{color:#aebbd6;font-size:9px}
 </style><title>Agent Meadow</title></head>
 <body>
-  <header><nav aria-label="에이전트 연결"><button data-command="codex">＋ Codex</button><button data-command="claude">＋ Claude</button></nav></header>
+  <header><nav aria-label="에이전트 연결"><button data-command="connectExisting">기존 대화 연결</button><button data-command="codex">＋ Codex</button><button data-command="claude">＋ Claude</button></nav></header>
   <main id="garden" aria-label="에이전트 정원">
     <div class="night-sky" aria-hidden="true"><div class="moon"></div><span class="sky-speck s1">✦</span><span class="sky-speck s2">✦</span><span class="sky-speck s3">✦</span></div>
     <div id="empty"><span class="eyebrow">A LITTLE COMPANY WHILE YOU CODE</span><h1>함께 일하고, 함께 쉬어요.</h1><p>Codex 토끼와 Claude 고양이를 정원에 초대해 보세요.</p></div>
@@ -86,7 +94,7 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
         const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
         m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
       }
-      m.index=i;m.data=p;m.el.className='pet '+p.state;m.bubble.textContent=p.message;m.name.textContent=p.name+(p.task?'\n'+p.task:'');m.name.title=p.name+(p.task?' · '+p.task:'');
+      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
       m.bubble.setAttribute('aria-label',p.name+': '+p.message+' · 작업 확인');
     }
     document.getElementById('empty').style.display=pets.length?'none':'flex';

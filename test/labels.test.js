@@ -6,4 +6,5 @@ test('task label uses first nonempty line, normalizes spacing, limits length',()
   assert.equal(taskLabel(undefined),'작업 대기');
   assert.equal(taskLabel('x'.repeat(40)),'x'.repeat(24)+'…');
   assert.equal(taskLabel('Explore'),'Explore');
+  assert.equal(taskLabel('user: 로그인 수정'),'로그인 수정');
 });

@@ -25,3 +25,11 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 /* Project and task are separate lines so agents can be distinguished. */
 .pet canvas{margin-bottom:18px}
 .name{white-space:pre-line;text-align:center;line-height:13px;max-height:28px}
+
+.pet.observed .name{border-left:2px solid #8aafd1}
+@media(max-width:400px){nav button{font-size:10px;padding:5px}}
+
+/* Each label has its own line; long project names cannot hide the task. */
+.name{width:165px;white-space:normal;max-height:none}
+.agent-title,.agent-task{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-task{color:#aebbd6;font-size:9px}

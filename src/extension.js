@@ -10,6 +10,7 @@ const {claudeState} = require('./state');
 const {removeFamily} = require('./lifecycle');
 const {projectDirectory} = require('./project');
 const {taskLabel} = require('./labels');
+const {discover,observe} = require('./existing');
 const quote = s => "'" + s.replace(/'/g, "'\\''") + "'";
 function activate(context) {
   const pets = new Map(), clients = new Map(), terminals = new Map(), requests = new Map(), queues = new Map(), restTimers = new Map();
@@ -17,6 +18,7 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Agent Meadow');
   let view, port;
   const names = new Map();
+  const observers = new Map();
   async function selectProject() {
     const active = vscode.window.activeTextEditor?.document.uri;
     let folder = active && vscode.workspace.getWorkspaceFolder(active);
@@ -49,8 +51,8 @@ function activate(context) {
     const previous = pets.get(id);
     pets.set(id,{id,provider,name:provider==='codex'?'Codex':'Claude',...previous,state,message,...extra}); publish();
     clearTimeout(restTimers.get(id)); restTimers.delete(id);
-    if (state === 'done') restTimers.set(id,setTimeout(()=>{restTimers.delete(id);if(pets.get(id)?.state==='done')update(id,provider,'sleeping','잠깐 쉬고 있어요…');},12000));
-    if (state === 'waiting' && previous?.state !== 'waiting') {
+    if (state === 'done' && !extra.observed) restTimers.set(id,setTimeout(()=>{restTimers.delete(id);if(pets.get(id)?.state==='done')update(id,provider,'sleeping','잠깐 쉬고 있어요…');},12000));
+    if (state === 'waiting' && previous?.state !== 'waiting' && !extra.observed) {
       vscode.window.showInformationMessage(`${provider==='codex'?'Codex':'Claude'}: ${message}`, '확인하기').then(v=>{if(v) inspect(id);});
       if (!vscode.window.state.focused && config().get('nativeNotifications') && process.platform === 'darwin') {
         // Constant text; never interpolates model output into AppleScript.
@@ -67,6 +69,12 @@ function activate(context) {
     } else if(queues.has(id)) queues.set(id,queues.get(id).filter(e=>e.msg.id!==requestId));
   }
   async function inspect(id) {
+    if(observers.has(id)){
+      const pet=pets.get(id);
+      const choice=await vscode.window.showInformationMessage(`${pet.name}: 로컬 대화 기록을 읽어 표시 중이에요. 답변과 승인은 원래 대화에서 진행해 주세요.`, '연결 해제');
+      if(choice){observers.get(id)?.dispose();observers.delete(id);remove(id);}
+      return;
+    }
     const pending = requests.get(id);
     if (pending) { await answer(id, pending); return; }
     const terminal = terminals.get(id) || terminals.get(pets.get(id)?.parent);
@@ -109,7 +117,7 @@ function activate(context) {
       try {
         if(m.type==='ready') publish();
         if(m.type==='inspect' && pets.has(m.id)) await inspect(m.id);
-        if(m.type==='command' && ['codex','claude'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
+        if(m.type==='command' && ['codex','claude','connectExisting'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
       } catch(e) {vscode.window.showErrorMessage(e.message);}
     },null,context.subscriptions);
   }};
@@ -142,6 +150,23 @@ function activate(context) {
   const register=(name,fn)=>vscode.commands.registerCommand('agentMeadow.'+name,async()=>{try {await fn();}catch(e){vscode.window.showErrorMessage('Agent Meadow: '+e.message);}});
   context.subscriptions.push(output,status,vscode.window.registerWebviewViewProvider('agentMeadow.garden',provider,{webviewOptions:{retainContextWhenHidden:true}}),
     register('open',()=>vscode.commands.executeCommand('agentMeadow.garden.focus')),
+    register('connectExisting',async()=>{
+      if(!vscode.workspace.isTrusted)return;
+      const folders=vscode.workspace.workspaceFolders||[];
+      if(!folders.length)throw new Error('먼저 대화의 프로젝트 폴더를 열어 주세요.');
+      const sessions=await vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'현재 작업 폴더의 기존 대화 찾는 중…'},()=>discover(folders.map(f=>f.uri.fsPath)));
+      const available=sessions.filter(s=>!observers.has('existing:'+s.file));
+      if(!available.length){vscode.window.showInformationMessage('연결할 로컬 대화 기록이 없어요. 현재 작업 폴더의 최근 Codex·Claude Code 기록만 찾습니다.');return;}
+      const picks=await vscode.window.showQuickPick(available.map(s=>({label:`${s.provider==='codex'?'Codex':'Claude'} · ${path.basename(s.cwd)}`,description:s.task,detail:`${new Date(s.mtime).toLocaleString()} · ${(s.session||path.basename(s.file)).slice(0,8)} · ${s.cwd}`,session:s})),{canPickMany:true,title:'기존 대화 연결 · 읽기 전용',placeHolder:'표시할 대화를 선택하세요. 승인·실제 활성 여부는 기록만으로 확인할 수 없습니다.',ignoreFocusOut:true});
+      if(!picks?.length)return;
+      for(const {session:s} of picks){
+        const id='existing:'+s.file;
+        const name=`${s.provider==='codex'?'Codex':'Claude'} · ${path.basename(s.cwd)}`;
+        const watcher=observe(s,data=>update(id,s.provider,data.state,data.message,{name,project:path.basename(s.cwd),task:data.task,observed:true}),()=>{observers.delete(id);remove(id);},()=>update(id,s.provider,'idle','기록을 읽을 수 없어요 · 연결 확인',{name,observed:true}));
+        observers.set(id,watcher);
+      }
+      await vscode.commands.executeCommand('agentMeadow.open');
+    }),
     register('claude',async()=>{
       if(!vscode.workspace.isTrusted) return;
       await listening;
@@ -208,7 +233,7 @@ function activate(context) {
       } catch(e) {client.dispose();throw e;}
     }),
     vscode.window.onDidCloseTerminal(t=>{for(const [id,term] of terminals) if(term===t){terminals.delete(id);remove(id);}}),
-    {dispose(){for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
+    {dispose(){for(const watcher of observers.values())watcher.dispose();for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
   );
   publish();
 }
