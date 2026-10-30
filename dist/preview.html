@@ -34,9 +34,13 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 .name{width:165px;white-space:normal;max-height:none}
 .agent-title,.agent-task{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agent-task{color:#aebbd6;font-size:9px}
+
+.pet canvas:focus-visible{outline:2px solid #a6cbbc;outline-offset:2px;border-radius:5px}
+
+header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
 </style><title>Agent Meadow</title></head>
 <body>
-  <header><nav aria-label="에이전트 연결"><button data-command="connectExisting">기존 대화 연결</button><button data-command="codex">＋ Codex</button><button data-command="claude">＋ Claude</button></nav></header>
+  <header><nav aria-label="에이전트 연결"><button data-command="connectExisting">기존 대화 연결</button><button data-command="codex">＋ Codex</button><button data-command="claude">＋ Claude</button><button data-command="character">캐릭터 변경</button></nav></header>
   <main id="garden" aria-label="에이전트 정원">
     <div class="night-sky" aria-hidden="true"><div class="moon"></div><span class="sky-speck s1">✦</span><span class="sky-speck s2">✦</span><span class="sky-speck s3">✦</span></div>
     <div id="empty"><span class="eyebrow">A LITTLE COMPANY WHILE YOU CODE</span><h1>함께 일하고, 함께 쉬어요.</h1><p>Codex 토끼와 Claude 고양이를 정원에 초대해 보세요.</p></div>
@@ -51,14 +55,40 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
   let visible=true,last=0;
   document.addEventListener('visibilitychange',()=>{visible=!document.hidden;});
   document.querySelectorAll('[data-command]').forEach(b=>b.addEventListener('click',()=>api.postMessage({type:'command',command:b.dataset.command})));
-  function draw(canvas, provider, state, time) {
+  function draw(canvas, provider, state, time, character) {
     const c=canvas.getContext('2d'); c.clearRect(0,0,40,44);c.imageSmoothingEnabled=false;
     const frame=reduced?0:Math.floor(time/240)%2;
-    const rabbit=provider==='codex', asleep=state==='sleeping', walk=state==='idle';
+    const rabbit=(character|| (provider==='codex'?'rabbit':'cat'))==='rabbit', asleep=state==='sleeping', walk=state==='idle';
     const fur=rabbit?'#f5e7e7':'#edc4a0',shade=rabbit?'#d7bbc9':'#c9987d',edge='#655366',pink='#e99eae';
     const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
     rect(9,39,23,2,'#11121a44');
     c.save();c.translate(0,(walk||state==='working')?frame:state==='done'?-frame*3:0);
+    if(character==='penguin'){
+      const ink='#39465e', blue='#617898', cream='#f4ecdf', beak='#efb477';
+      if(asleep){
+        rect(8,29,25,9,ink);rect(11,26,18,12,blue);rect(12,30,15,8,cream);
+        rect(27,33,7,3,beak);rect(9,35,6,3,blue);rect(20,32,4,1,ink);
+        rect(10,38,6,2,beak);rect(5,35,4,2,blue);
+        c.fillStyle='#cbb9db';c.font='7px monospace';c.fillText('z',28,23-frame);c.fillText('Z',33,16-frame);
+      }else{
+        rect(12,10,16,3,ink);rect(9,13,22,23,ink);rect(11,12,18,25,blue);
+        rect(14,9,5,3,blue);rect(18,7,3,4,blue);
+        rect(12,17,7,9,cream);rect(22,17,6,9,cream);rect(14,24,13,13,cream);rect(12,29,16,6,cream);
+        const blink=Math.floor(time/160)%31===0;
+        rect(15,21,2,blink?1:3,ink);rect(24,21,2,blink?1:3,ink);
+        rect(18,25,6,2,beak);rect(20,27,2,1,beak);
+        rect(12,25,3,2,pink);rect(26,25,3,2,pink);
+        rect(11,37,7,3,beak);rect(23,37+(walk?frame:0),7,3,beak);
+        rect(10,29,20,2,'#a6cbbc');rect(24,30,3,5,'#a6cbbc');
+        rect(6,27+(walk?frame:0),5,8,blue);
+        rect(30,state==='waiting'?21-frame*2:27,5,8,blue);
+        if(state==='working'){rect(9,32,23,6,'#6e7c90');rect(11,33,19,4,'#b9c5cf');rect(8,38,25,2,'#8d99ad');rect(19,34,3,2,cream);}
+        if(state==='waiting'){rect(35,9,2,6,pink);rect(35,17,2,2,pink);}
+        if(state==='thinking')for(let i=0;i<3;i++)rect(14+i*5,2,2,2,i===Math.floor(time/350)%3?cream:'#87758e');
+        if(state==='done'){rect(30,4,2,2,pink);rect(34,4,2,2,pink);rect(29,6,8,2,pink);rect(31,8,4,2,pink);rect(32,10,2,1,pink);}
+      }
+      c.restore();return;
+    }
     if(asleep){
       rect(8,29,25,9,edge);rect(9,27,21,10,fur);rect(7,30,7,6,fur);rect(27,31,7,6,fur);
       if(rabbit){rect(11,23,12,3,shade);rect(13,26,12,3,fur);}else{rect(11,25,4,6,fur);rect(22,25,4,6,fur);}
@@ -90,8 +120,9 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
       let m=models.get(p.id);
       if(!m){
         const el=document.createElement('div'), bubble=document.createElement('button'), canvas=document.createElement('canvas'), name=document.createElement('span');
-        bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.setAttribute('aria-hidden','true');name.className='name';el.append(bubble,canvas,name);root.append(el);
-        const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);canvas.addEventListener('click',inspect);
+        bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','캐릭터 변경');canvas.title='클릭해서 캐릭터 변경';name.className='name';el.append(bubble,canvas,name);root.append(el);
+        const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);
+        const change=()=>api.postMessage({type:'character',id:p.id});canvas.addEventListener('click',change);canvas.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();change();}});
         m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
       }
       m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
@@ -108,7 +139,7 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
       const min=m.index*lane+15, max=(m.index+1)*lane-185;
       if(m.data.state==='idle'&&!reduced){m.x+=m.direction*dt*12;if(m.x<=min||m.x>=max)m.direction*=-1;}
       m.x=Math.max(min,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
-      draw(m.canvas,m.data.provider,m.data.state,t);
+      draw(m.canvas,m.data.provider,m.data.state,t,m.data.character);
     }
     requestAnimationFrame(frame);
   }

@@ -49,7 +49,7 @@ function activate(context) {
   }
   function update(id, provider, state, message, extra={}) {
     const previous = pets.get(id);
-    pets.set(id,{id,provider,name:provider==='codex'?'Codex':'Claude',...previous,state,message,...extra}); publish();
+    pets.set(id,{id,provider,name:provider==='codex'?'Codex':'Claude',character:context.workspaceState.get('character:'+id,provider==='codex'?'rabbit':'cat'),...previous,state,message,...extra}); publish();
     clearTimeout(restTimers.get(id)); restTimers.delete(id);
     if (state === 'done' && !extra.observed) restTimers.set(id,setTimeout(()=>{restTimers.delete(id);if(pets.get(id)?.state==='done')update(id,provider,'sleeping','잠깐 쉬고 있어요…');},12000));
     if (state === 'waiting' && previous?.state !== 'waiting' && !extra.observed) {
@@ -116,6 +116,18 @@ function activate(context) {
       client.send({id:msg.id,result}); resolveRequest(id,msg.id);
     } finally {entry.open=false;}
   }
+  async function chooseCharacter(id) {
+    if(!pets.size){vscode.window.showInformationMessage('먼저 에이전트나 기존 대화를 연결해 주세요.');return;}
+    if(!id){
+      const target=await vscode.window.showQuickPick([...pets.values()].map(p=>({label:p.name,description:p.task,id:p.id})),{title:'바꿀 에이전트 선택'});
+      if(!target)return;id=target.id;
+    }
+    const chosen=await vscode.window.showQuickPick([{label:'펭귄',description:'둥근 몸 · 주황 부리 · 민트 목도리',value:'penguin'},{label:'토끼',description:'긴 귀 · 크림색',value:'rabbit'},{label:'고양이',description:'뾰족한 귀 · 살구색',value:'cat'}],{title:'에이전트 캐릭터 선택',placeHolder:'선택하면 바로 바뀌어요'});
+    if(chosen&&pets.has(id)){
+      await context.workspaceState.update('character:'+id,chosen.value);
+      const pet=pets.get(id);if(pet){pet.character=chosen.value;publish();}
+    }
+  }
   const provider = {resolveWebviewView(v) {
     view=v; v.webview.options={enableScripts:true,localResourceRoots:[vscode.Uri.joinPath(context.extensionUri,'media')]};
     const nonce = crypto.randomBytes(16).toString('hex');
@@ -125,7 +137,8 @@ function activate(context) {
       try {
         if(m.type==='ready') publish();
         if(m.type==='inspect' && pets.has(m.id)) await inspect(m.id);
-        if(m.type==='command' && ['codex','claude','connectExisting'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
+        if(m.type==='character' && pets.has(m.id))await chooseCharacter(m.id);
+        if(m.type==='command' && ['codex','claude','connectExisting','character'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
       } catch(e) {vscode.window.showErrorMessage(e.message);}
     },null,context.subscriptions);
   }};
@@ -158,6 +171,7 @@ function activate(context) {
   const register=(name,fn)=>vscode.commands.registerCommand('agentMeadow.'+name,async()=>{try {await fn();}catch(e){vscode.window.showErrorMessage('Agent Meadow: '+e.message);}});
   context.subscriptions.push(output,status,vscode.window.registerWebviewViewProvider('agentMeadow.garden',provider,{webviewOptions:{retainContextWhenHidden:true}}),
     register('open',()=>vscode.commands.executeCommand('agentMeadow.garden.focus')),
+    register('character',()=>chooseCharacter()),
     register('connectExisting',async()=>{
       if(!vscode.workspace.isTrusted)return;
       const folders=vscode.workspace.workspaceFolders||[];

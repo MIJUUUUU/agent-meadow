@@ -33,3 +33,7 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 .name{width:165px;white-space:normal;max-height:none}
 .agent-title,.agent-task{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agent-task{color:#aebbd6;font-size:9px}
+
+.pet canvas:focus-visible{outline:2px solid #a6cbbc;outline-offset:2px;border-radius:5px}
+
+header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
