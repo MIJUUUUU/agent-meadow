@@ -2,7 +2,7 @@
   "name": "agent-meadow",
   "displayName": "Agent Meadow · 에이전트 정원",
   "description": "Codex 토끼와 Claude 고양이가 함께 사는 작은 도트 정원",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "agent-meadow-local",
   "license": "MIT",
   "engines": {

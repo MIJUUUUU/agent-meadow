@@ -10,7 +10,7 @@ test('Codex metadata, task text, and complete status are read without resume',()
     {type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:'# Context\n## My request:\n로그인 수정'}]}},
     {type:'event_msg',payload:{type:'task_complete'}}
   ],Date.now());
-  assert.equal(data.cwd,'/project');assert.equal(data.task,'로그인 수정');assert.equal(data.state,'done');
+  assert.equal(data.cwd,'/project');assert.equal(data.task,'기존 대화');assert.equal(data.state,'done');
 });
 test('silent logs never claim current thinking or permission approval',()=>{
   const result=snapshot('codex',[{type:'event_msg',payload:{type:'task_started'}}],1000,200000);
@@ -20,6 +20,11 @@ test('silent logs never claim current thinking or permission approval',()=>{
 test('Claude conversation title takes precedence over a short follow-up request',()=>{
   const result=snapshot('claude',[{type:'ai-title',aiTitle:'로그인 화면 구현'},{type:'last-prompt',lastPrompt:'계속해줘'},{type:'user',message:{content:'user: 계속해줘'}}],Date.now());
   assert.equal(result.task,'로그인 화면 구현');
+});
+test('raw prompts are never used as conversation names',()=>{
+  const events=[{type:'last-prompt',lastPrompt:'지금프로젝트 확인해줘'},{type:'user',message:{content:'응 만들어봐'}}];
+  assert.equal(snapshot('claude',events,Date.now()).task,'기존 대화');
+  assert.equal(snapshot('codex',[{type:'event_msg',payload:{type:'user_message',message:'계속해줘'}}],Date.now()).task,'기존 대화');
 });
 test('Claude tool result and turn completion supersede prior activity',()=>{
   const rows=[{type:'user',cwd:'/app',sessionId:'abc',message:{content:'수정해줘'}},{type:'assistant',message:{content:[{type:'tool_use',name:'Read'}]}},{type:'user',message:{content:[{type:'tool_result'}]}},{type:'system',subtype:'turn_duration'}];

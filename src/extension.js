@@ -71,8 +71,16 @@ function activate(context) {
   async function inspect(id) {
     if(observers.has(id)){
       const pet=pets.get(id);
-      const choice=await vscode.window.showInformationMessage(`${pet.name}: 로컬 대화 기록을 읽어 표시 중이에요. 답변과 승인은 원래 대화에서 진행해 주세요.`, '연결 해제');
-      if(choice){observers.get(id)?.dispose();observers.delete(id);remove(id);}
+      const choice=await vscode.window.showInformationMessage(`${pet.name}: 로컬 대화 기록을 읽어 표시 중이에요. 답변과 승인은 원래 대화에서 진행해 주세요.`, '이름 설정', '연결 해제');
+      if(choice==='연결 해제'){observers.get(id)?.dispose();observers.delete(id);remove(id);}
+      if(choice==='이름 설정'){
+        const project=await vscode.window.showInputBox({title:'프로젝트 이름',value:pet.project,ignoreFocusOut:true,validateInput:v=>v.trim()?null:'프로젝트 이름을 입력해 주세요'});
+        if(project===undefined)return;
+        const task=await vscode.window.showInputBox({title:'에이전트 역할 또는 대화 이름',prompt:'예: UI 개발, API 구현, 코드 리뷰',value:pet.task||'',ignoreFocusOut:true});
+        if(task===undefined)return;
+        await context.workspaceState.update('label:'+id,{project:project.trim(),task:task.trim()});
+        if(pets.has(id))update(id,pet.provider,pet.state,pet.message,{name:`${pet.provider==='codex'?'Codex':'Claude'} · ${project.trim()}`,project:project.trim(),task:task.trim(),observed:true});
+      }
       return;
     }
     const pending = requests.get(id);
@@ -161,8 +169,14 @@ function activate(context) {
       if(!picks?.length)return;
       for(const {session:s} of picks){
         const id='existing:'+s.file;
-        const name=`${s.provider==='codex'?'Codex':'Claude'} · ${path.basename(s.cwd)}`;
-        const watcher=observe(s,data=>update(id,s.provider,data.state,data.message,{name,project:path.basename(s.cwd),task:data.task,observed:true}),()=>{observers.delete(id);remove(id);},()=>update(id,s.provider,'idle','기록을 읽을 수 없어요 · 연결 확인',{name,observed:true}));
+        const active=vscode.window.activeTextEditor?.document.uri;
+        const project=path.basename(projectDirectory(s.cwd,active?.scheme==='file'?active.fsPath:undefined));
+        const initial={project,task:s.task==='기존 대화'?'연결된 대화':s.task};
+        const label=()=>{
+          const saved=context.workspaceState.get('label:'+id,initial);
+          return {...saved,name:`${s.provider==='codex'?'Codex':'Claude'} · ${saved.project}`,observed:true};
+        };
+        const watcher=observe(s,data=>update(id,s.provider,data.state,data.message,label()),()=>{observers.delete(id);remove(id);},()=>update(id,s.provider,'idle','기록을 읽을 수 없어요 · 연결 확인',label()));
         observers.set(id,watcher);
       }
       await vscode.commands.executeCommand('agentMeadow.open');

@@ -16,19 +16,13 @@ function snapshot(provider,events,mtime,now=Date.now()) {
   for(const e of events){
     const p=e.payload||{};
     if(provider==='codex'){
-      if(e.type==='session_meta'){result.cwd=p.cwd;result.session=p.id||p.session_id;}
+      if(e.type==='session_meta'){result.cwd=p.cwd;result.session=p.id||p.session_id;if(p.title||p.name)title=taskLabel(p.title||p.name,'기존 대화');}
       if(e.type==='event_msg'){
         if(p.type==='task_started')set('thinking','응답 생성 기록이 있어요',e);
         if(p.type==='task_complete')set('done','답변이 완료됐어요',e);
         if(p.type==='turn_aborted')set('idle','작업이 중단됐어요',e);
-        if(p.type==='user_message')result.task=taskLabel(p.message,'기존 대화');
       }
       if(e.type==='response_item'){
-        if(p.type==='message'&&p.role==='user'&&Array.isArray(p.content)){
-          const text=p.content.filter(b=>['input_text','text'].includes(b.type)).map(b=>b.text||'').join('\n');
-          const request=text.includes('## My request:')?text.split('## My request:').pop().trim():text;
-          if(request&&!request.startsWith('<')&&!request.startsWith('# AGENTS'))result.task=taskLabel(request,'기존 대화');
-        }
         if(['function_call','custom_tool_call'].includes(p.type))set('working','도구 사용 기록이 있어요',e);
         if(['function_call_output','custom_tool_call_output'].includes(p.type))set('thinking','도구 결과를 확인하는 중',e);
       }
@@ -36,12 +30,11 @@ function snapshot(provider,events,mtime,now=Date.now()) {
       if(e.cwd)result.cwd=e.cwd;
       if(e.sessionId)result.session=e.sessionId;
       if(e.type==='ai-title'&&e.aiTitle)title=taskLabel(e.aiTitle,'기존 대화');
-      if(e.type==='last-prompt'&&e.lastPrompt)result.task=taskLabel(e.lastPrompt,'기존 대화');
       if(e.type==='user'){
         const content=e.message?.content;
-        if(typeof content==='string'&&!e.isMeta){result.task=taskLabel(content,'기존 대화');set('thinking','요청을 처리하는 중',e);}
+        if(typeof content==='string'&&!e.isMeta){set('thinking','요청을 처리하는 중',e);}
         else if(Array.isArray(content)&&content.some(b=>b.type==='tool_result'))set('thinking','도구 결과를 확인하는 중',e);
-        else if(Array.isArray(content)&&!e.isMeta){const b=content.find(b=>b.type==='text');if(b){result.task=taskLabel(b.text,'기존 대화');set('thinking','요청을 처리하는 중',e);}}
+        else if(Array.isArray(content)&&!e.isMeta){if(content.some(b=>b.type==='text'))set('thinking','요청을 처리하는 중',e);}
       }
       if(e.type==='assistant'){
         const content=e.message?.content||[];
