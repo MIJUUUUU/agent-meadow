@@ -16,8 +16,8 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 @keyframes starlight{0%,100%{opacity:.4}50%{opacity:.9}}
 @media(prefers-reduced-motion:reduce){.sky-speck{animation:none}}
 
-/* Keep multiple agents readable; scroll horizontally when the panel is full. */
-#pets{overflow-x:auto;overflow-y:hidden;pointer-events:auto;scrollbar-width:thin;scrollbar-color:#536281 transparent}
+/* All agents share the visible garden; no horizontal scrolling. */
+#pets{overflow:hidden;pointer-events:auto}
 #pets:empty{pointer-events:none}
 
 .name{max-width:165px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -37,3 +37,10 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 .pet canvas:focus-visible{outline:2px solid #a6cbbc;outline-offset:2px;border-radius:5px}
 
 header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
+
+/* Smaller companions share the same walking area and may pass one another. */
+.pet{width:136px;pointer-events:none}
+.pet canvas{width:64px;height:70.4px;pointer-events:auto}
+.pet .bubble{max-width:132px;font-size:10px;padding:6px 8px;pointer-events:auto}
+.pet .name{width:132px;max-width:100%;font-size:8px;letter-spacing:.2px;pointer-events:auto}
+.pet:hover,.pet:focus-within{z-index:20}

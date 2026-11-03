@@ -17,8 +17,8 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 @keyframes starlight{0%,100%{opacity:.4}50%{opacity:.9}}
 @media(prefers-reduced-motion:reduce){.sky-speck{animation:none}}
 
-/* Keep multiple agents readable; scroll horizontally when the panel is full. */
-#pets{overflow-x:auto;overflow-y:hidden;pointer-events:auto;scrollbar-width:thin;scrollbar-color:#536281 transparent}
+/* All agents share the visible garden; no horizontal scrolling. */
+#pets{overflow:hidden;pointer-events:auto}
 #pets:empty{pointer-events:none}
 
 .name{max-width:165px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -38,6 +38,13 @@ main{isolation:isolate;background:radial-gradient(ellipse at 50% 115%,#34335488,
 .pet canvas:focus-visible{outline:2px solid #a6cbbc;outline-offset:2px;border-radius:5px}
 
 header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
+
+/* Smaller companions share the same walking area and may pass one another. */
+.pet{width:136px;pointer-events:none}
+.pet canvas{width:64px;height:70.4px;pointer-events:auto}
+.pet .bubble{max-width:132px;font-size:10px;padding:6px 8px;pointer-events:auto}
+.pet .name{width:132px;max-width:100%;font-size:8px;letter-spacing:.2px;pointer-events:auto}
+.pet:hover,.pet:focus-within{z-index:20}
 </style><title>Agent Meadow</title></head>
 <body>
   <header><nav aria-label="에이전트 연결"><button data-command="connectExisting">기존 대화 연결</button><button data-command="codex">＋ Codex</button><button data-command="claude">＋ Claude</button><button data-command="character">캐릭터 변경</button></nav></header>
@@ -52,13 +59,25 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
   const api=typeof acquireVsCodeApi==='function'?acquireVsCodeApi():{postMessage:()=>{}};
   const root=document.getElementById('pets'), models=new Map();
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let visible=true,last=0;
+  let visible=true,last=0,layoutWidth=-1;
+  function spread(){
+    const width=root.clientWidth, size=Math.min(136,width);
+    const available=Math.max(0,width-size);
+    let i=0;
+    for(const m of models.values()){
+      m.x=models.size===1?available/2:available*i/(models.size-1);
+      m.el.style.width=size+'px';
+      m.el.style.bottom=(i%3)*3+'px';
+      i++;
+    }
+    layoutWidth=width;root.scrollLeft=0;
+  }
   document.addEventListener('visibilitychange',()=>{visible=!document.hidden;});
   document.querySelectorAll('[data-command]').forEach(b=>b.addEventListener('click',()=>api.postMessage({type:'command',command:b.dataset.command})));
   function draw(canvas, provider, state, time, character) {
     const c=canvas.getContext('2d'); c.clearRect(0,0,40,44);c.imageSmoothingEnabled=false;
     const frame=reduced?0:Math.floor(time/240)%2;
-    const rabbit=(character|| (provider==='codex'?'rabbit':'cat'))==='rabbit', asleep=state==='sleeping', walk=state==='idle';
+    const rabbit=(character|| (provider==='codex'?'rabbit':'cat'))==='rabbit', asleep=state==='sleeping', walk=state==='idle'||state==='done';
     const fur=rabbit?'#f5e7e7':'#edc4a0',shade=rabbit?'#d7bbc9':'#c9987d',edge='#655366',pink='#e99eae';
     const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
     rect(9,39,23,2,'#11121a44');
@@ -114,6 +133,7 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
     c.restore();
   }
   function sync(pets){
+    const changed=pets.length!==models.size||pets.some(p=>!models.has(p.id));
     const ids=new Set(pets.map(p=>p.id));
     for(const [id,m] of models)if(!ids.has(id)){m.el.remove();models.delete(id);}
     for(const [i,p] of pets.entries()){
@@ -123,7 +143,7 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
         bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','캐릭터 변경');canvas.title='클릭해서 캐릭터 변경';name.className='name';el.append(bubble,canvas,name);root.append(el);
         const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);
         const change=()=>api.postMessage({type:'character',id:p.id});canvas.addEventListener('click',change);canvas.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();change();}});
-        m={el,bubble,canvas,name,x:(i+.5)*root.clientWidth/Math.max(pets.length,1)-85,direction:i%2?1:-1,data:p};models.set(p.id,m);
+        m={el,bubble,canvas,name,x:0,direction:i%2?-1:1,speed:10+(i%4)*3,data:p};models.set(p.id,m);
       }
       m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
       m.bubble.setAttribute('aria-label',p.name+': '+p.message+' · 작업 확인');
@@ -131,14 +151,19 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
     document.getElementById('empty').style.display=pets.length?'none':'flex';
     const waiting=pets.filter(p=>p.state==='waiting').length;
     document.getElementById('count').textContent=pets.length?`${pets.length}명의 작은 동료${waiting?' · '+waiting+'명이 확인을 기다려요':''}`:'아직 연결된 동료가 없어요';
+    if(changed)spread();
   }
   function frame(t){
     const dt=Math.min((t-last)/1000,.1);last=t;
+    if(root.clientWidth!==layoutWidth)spread();
     if(visible)for(const m of models.values()){
-      const lane=Math.max(210,root.clientWidth/Math.max(1,models.size));
-      const min=m.index*lane+15, max=(m.index+1)*lane-185;
-      if(m.data.state==='idle'&&!reduced){m.x+=m.direction*dt*12;if(m.x<=min||m.x>=max)m.direction*=-1;}
-      m.x=Math.max(min,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
+      const max=Math.max(0,root.clientWidth-Math.min(136,root.clientWidth));
+      if(['idle','done'].includes(m.data.state)&&!reduced&&!m.el.matches(':hover, :focus-within')){
+        m.x+=m.direction*dt*m.speed;
+        if(m.x<=0)m.direction=1;
+        else if(m.x>=max)m.direction=-1;
+      }
+      m.x=Math.max(0,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
       draw(m.canvas,m.data.provider,m.data.state,t,m.data.character);
     }
     requestAnimationFrame(frame);
