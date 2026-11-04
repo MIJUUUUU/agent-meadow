@@ -108,31 +108,36 @@
         rect(11,4,6,15,shade);rect(12,3,4,15,fur);rect(13,6,2,10,'#efb6c9');
         rect(24,6,6,13,shade);rect(25,5,4,13,fur);rect(26,8,2,8,'#efb6c9');
         rect(28,5,4,3,fur);rect(29,8,3,3,shade);rect(29,8,2,2,pink);
-        rect(30,31,5,5,'#fff7f0');
+        rect(27,34,4,3,shade);rect(28,33,2,4,fur);rect(27,34,4,2,fur);
       }else{
         rect(9,12,7,9,shade);rect(10,10,3,10,fur);rect(11,13,3,5,pink);
         rect(25,12,7,9,shade);rect(28,10,3,10,fur);rect(27,13,3,5,pink);
-        rect(30,32,7,4,shade);rect(34,26,4,8,shade);rect(33,24,4,4,fur);
-        rect(35,28,2,5,fur);rect(31,32,5,3,fur);rect(33,24,3,2,'#fff0d8');
+        // Low curled tail grows from the hip, below the front paws.
+        rect(27,35,5,3,shade);rect(30,36,6,3,shade);
+        rect(34,34,4,4,shade);rect(33,33,4,2,shade);
+        rect(28,35,4,2,fur);rect(31,36,5,2,fur);
+        rect(35,34,2,3,fur);rect(33,34,3,1,'#fff0d8');
       }
       rect(12,28,16,10,shade);rect(11,31,18,5,shade);rect(13,28,14,9,fur);
-      rect(14,31,12,6,rabbit?'#b5cdb8':'#bcb3d7');rect(16,31,2,5,rabbit?'#d8e5cf':'#ddd4ec');
+      rect(14,31,12,6,rabbit?'#b5cdb8':'#bcb3d7');
       rect(11,17,18,14,shade);rect(8,20,24,8,shade);rect(10,18,20,12,fur);rect(9,21,22,6,fur);
-      rect(12,16,16,3,fur);rect(12,18,13,2,rabbit?'#fff8f3':'#f8dcb6');
-      rect(12,28,16,3,rabbit?'#ead4dc':'#ddb18d');
-      rect(16,24,9,6,'#fff2e5');
-      if(!rabbit){rect(17,17,2,4,shade);rect(22,17,2,3,shade);rect(9,23,3,1,shade);rect(28,23,3,1,shade);}
+      rect(12,16,16,3,fur);
+      // Small plain eyes and a quiet face, matching the hamster and penguin.
+      if(!rabbit){rect(18,17,2,2,shade);rect(22,17,2,2,shade);}
       const blink=Math.floor(time/160)%31===0;
-      rect(14,21,3,blink?1:4,edge);rect(24,21,3,blink?1:4,edge);
-      if(!blink){rect(14,21,1,1,'#fffaf3');rect(24,21,1,1,'#fffaf3');}
-      rect(10,25,4,2,'#eba9b7');rect(27,25,3,2,'#eba9b7');rect(19,25,3,2,pink);
-      rect(20,27,1,2,edge);rect(18,28,2,1,edge);rect(21,28,2,1,edge);
-      if(rabbit){rect(18,30,4,2,'#8ca994');rect(22,30,3,2,'#b5cdb8');}
-      else{rect(16,30,10,2,'#bcb3d7');rect(20,31,2,2,'#e8cc8b');}
+      rect(14,22,2,blink?1:3,edge);rect(25,22,2,blink?1:3,edge);
+      rect(11,26,3,2,pink);rect(27,26,3,2,pink);
+      rect(20,26,2,1,edge);rect(19,28,4,1,pink);
+      rect(16,30,10,2,rabbit?'#b5cdb8':'#bcb3d7');
       rect(12,37,6,2,shade);rect(13,37,4,1,fur);rect(23,37+(walk?frame:0),6,2,shade);rect(24,37+(walk?frame:0),4,1,fur);
       if(state==='working') {rect(9,31,22,7,'#6e7c90');rect(11,32,18,4,'#b9c5cf');rect(8,38,25,2,'#8d99ad');rect(18,33,4,2,'#eee0cd');}
-      else if(state==='waiting'){rect(29,25-frame*2,4,6,fur);rect(30,24-frame*2,3,2,shade);rect(34,7,2,6,'#f0c4d3');rect(34,15,2,2,'#f0c4d3');}
-      else{rect(9,31,4,4,fur);rect(28,31,3,4,fur);}
+      else{
+        // Both front paws rest on the belly, inside the body's silhouette.
+        rect(14,31,3,4,fur);rect(15,34,2,1,shade);
+        const lift=state==='waiting'?1+frame:0;
+        rect(23,31-lift,3,4,fur);rect(23,34-lift,2,1,shade);
+        if(state==='waiting'){rect(34,7,2,6,'#f0c4d3');rect(34,15,2,2,'#f0c4d3');}
+      }
       if(state==='thinking'){for(let i=0;i<3;i++)rect(15+i*5,0,2,2,i===Math.floor(time/350)%3?'#ead5e5':'#87758e');}
       if(state==='done'){rect(31,3,2,2,pink);rect(35,3,2,2,pink);rect(30,5,8,2,pink);rect(32,7,4,2,pink);rect(33,9,2,1,pink);}
     }
