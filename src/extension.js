@@ -122,7 +122,7 @@ function activate(context) {
       const target=await vscode.window.showQuickPick([...pets.values()].map(p=>({label:p.name,description:p.task,id:p.id})),{title:'바꿀 에이전트 선택'});
       if(!target)return;id=target.id;
     }
-    const chosen=await vscode.window.showQuickPick([{label:'펭귄',description:'둥근 몸 · 주황 부리 · 민트 목도리',value:'penguin'},{label:'토끼',description:'긴 귀 · 크림색',value:'rabbit'},{label:'고양이',description:'뾰족한 귀 · 살구색',value:'cat'}],{title:'에이전트 캐릭터 선택',placeHolder:'선택하면 바로 바뀌어요'});
+    const chosen=await vscode.window.showQuickPick([{label:'강아지',description:'축 처진 귀 · 꼬리 · 하늘색 목줄',value:'dog'},{label:'햄스터',description:'둥근 귀 · 통통한 볼 · 작은 앞니',value:'hamster'},{label:'펭귄',description:'둥근 몸 · 주황 부리 · 민트 목도리',value:'penguin'},{label:'토끼',description:'긴 귀 · 크림색',value:'rabbit'},{label:'고양이',description:'뾰족한 귀 · 살구색',value:'cat'}],{title:'에이전트 캐릭터 선택',placeHolder:'선택하면 바로 바뀌어요'});
     if(chosen&&pets.has(id)){
       await context.workspaceState.update('character:'+id,chosen.value);
       const pet=pets.get(id);if(pet){pet.character=chosen.value;publish();}
