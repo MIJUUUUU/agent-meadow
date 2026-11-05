@@ -44,3 +44,9 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
 .pet .bubble{max-width:132px;font-size:10px;padding:6px 8px;pointer-events:auto}
 .pet .name{width:132px;max-width:100%;font-size:8px;letter-spacing:.2px;pointer-events:auto}
 .pet:hover,.pet:focus-within{z-index:20}
+
+/* Pick up companions without changing their click action. */
+.pet canvas{touch-action:none;user-select:none;cursor:grab;transition:translate .12s ease,filter .12s ease}
+.pet.dragging{z-index:100!important}
+.pet.dragging canvas{cursor:grabbing;translate:0 -6px;filter:drop-shadow(0 7px 3px #0005)}
+@media(prefers-reduced-motion:reduce){.pet canvas{transition:none}}

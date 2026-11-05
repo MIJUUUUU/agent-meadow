@@ -7,12 +7,26 @@
   function spread(){
     const width=root.clientWidth, size=Math.min(136,width);
     const available=Math.max(0,width-size);
+    const existing=[...models.values()].filter(m=>m.positioned);
+    const occupied=existing.map(m=>Math.max(0,Math.min(available,m.x)));
     let i=0;
     for(const m of models.values()){
-      m.x=models.size===1?available/2:available*i/(models.size-1);
-      m.target=m.x;m.velocity=0;m.pause=.4+Math.random()*2.4;
-      m.el.style.width=size+'px';
-      m.el.style.bottom=(i%3)*3+'px';
+      if(!m.positioned){
+        if(!existing.length)m.x=models.size===1?available/2:available*i/(models.size-1);
+        else {
+          const sorted=[...occupied].sort((a,b)=>a-b);
+          const candidates=[0,available,...sorted.slice(1).map((x,j)=>(x+sorted[j])/2)];
+          m.x=candidates.reduce((best,x)=>Math.min(...sorted.map(p=>Math.abs(p-x)))>Math.min(...sorted.map(p=>Math.abs(p-best)))?x:best,0);
+        }
+        occupied.push(m.x);m.target=m.x;m.velocity=0;m.pause=.4+Math.random()*2.4;
+        m.y=(i%3)*3;m.positioned=true;
+      }else{
+        // Membership changes never restart another companion's walk.
+        m.x=Math.max(0,Math.min(available,m.x));
+        m.target=Math.max(0,Math.min(available,m.target));
+      }
+      m.el.style.width=size+'px';m.el.style.bottom=m.y+'px';
+      m.el.style.transform=`translateX(${m.x}px)`;
       i++;
     }
     layoutWidth=width;root.scrollLeft=0;
@@ -146,18 +160,62 @@
   function sync(pets){
     const changed=pets.length!==models.size||pets.some(p=>!models.has(p.id));
     const ids=new Set(pets.map(p=>p.id));
-    for(const [id,m] of models)if(!ids.has(id)){m.el.remove();models.delete(id);}
+    for(const [id,m] of models)if(!ids.has(id)){m.cancelDrag?.();m.el.remove();models.delete(id);}
     for(const [i,p] of pets.entries()){
       let m=models.get(p.id);
       if(!m){
         const el=document.createElement('div'), bubble=document.createElement('button'), canvas=document.createElement('canvas'), name=document.createElement('span');
-        el.addEventListener('contextmenu',e=>{e.preventDefault();api.postMessage({type:'desktopMenu',id:p.id});});
-        bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','캐릭터 변경');canvas.title='클릭해서 캐릭터 변경';name.className='name';el.append(bubble,canvas,name);root.append(el);
+        let lastMenu=-Infinity;
+        const openMenu=e=>{
+          e.preventDefault();e.stopPropagation();
+          const now=Date.now();if(now-lastMenu<500)return;lastMenu=now;
+          api.postMessage({type:'desktopMenu',id:p.id});
+        };
+        // Handle the secondary press before the host's default context menu.
+        el.addEventListener('pointerdown',e=>{if(e.button===2||(e.button===0&&e.ctrlKey))openMenu(e);},true);
+        el.addEventListener('contextmenu',openMenu,true);
+        el.addEventListener('click',e=>{if(e.ctrlKey){e.preventDefault();e.stopPropagation();}},true);
+        bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','캐릭터 변경');canvas.title='클릭: 캐릭터 변경 · 꾹 눌러 드래그: 옮기기';name.className='name';el.append(bubble,canvas,name);root.append(el);
         const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);
-        const change=()=>api.postMessage({type:'character',id:p.id});canvas.addEventListener('click',change);canvas.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();change();}});
+        const change=()=>api.postMessage({type:'character',id:p.id});canvas.addEventListener('click',e=>{if(Date.now()<(m.suppressClickUntil||0)){e.preventDefault();return;}change();});canvas.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();change();}});
         m={el,bubble,canvas,name,x:0,target:0,velocity:0,pause:0,direction:i%2?-1:1,speed:12+Math.random()*12,phase:Math.random()*4000,data:p};models.set(p.id,m);
+        const maxY=()=>Math.max(0,(root.clientHeight||240)-(el.offsetHeight||150));
+        let holdTimer;
+        const lift=()=>{
+          if(!m.grab)return;
+          m.grab.lifted=true;m.velocity=0;
+          el.classList.add('dragging');api.postMessage({type:'dragging',active:true});
+        };
+        const finish=()=>{
+          clearTimeout(holdTimer);
+          if(!m.grab)return;
+          const {pointerId,lifted}=m.grab;m.grab=null;
+          if(lifted){m.placed=true;m.suppressClickUntil=Date.now()+500;m.target=m.x;m.pause=2;api.postMessage({type:'dragging',active:false});}
+          el.classList.remove('dragging');
+          if(canvas.hasPointerCapture?.(pointerId))canvas.releasePointerCapture(pointerId);
+        };
+        m.cancelDrag=finish;
+        canvas.addEventListener('pointerdown',e=>{
+          if(e.button!==0||e.ctrlKey||m.grab)return;
+          m.grab={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,x:m.x,y:m.y??(m.index%3)*3,lifted:false};
+          canvas.setPointerCapture(e.pointerId);holdTimer=setTimeout(lift,240);
+        });
+        canvas.addEventListener('pointermove',e=>{
+          const g=m.grab;if(!g||g.pointerId!==e.pointerId)return;
+          const dx=e.clientX-g.startX,dy=e.clientY-g.startY;
+          if(!g.lifted&&Math.hypot(dx,dy)>5){clearTimeout(holdTimer);lift();}
+          if(!g.lifted)return;
+          e.preventDefault();
+          m.x=Math.max(0,Math.min(Math.max(0,root.clientWidth-Math.min(136,root.clientWidth)),g.x+dx));
+          m.y=Math.max(0,Math.min(maxY(),g.y-dy));m.velocity=0;
+          el.style.transform=`translateX(${m.x}px)`;el.style.bottom=m.y+'px';
+        });
+        canvas.addEventListener('pointerup',finish);
+        canvas.addEventListener('pointercancel',finish);
+        canvas.addEventListener('lostpointercapture',finish);
+
       }
-      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
+      m.index=i;m.data=p;m.el.className='pet '+p.state+(p.observed?' observed':'')+(m.grab?.lifted?' dragging':'');m.bubble.textContent=p.message;const title=document.createElement('span'), task=document.createElement('span');title.className='agent-title';task.className='agent-task';title.textContent=p.name;task.textContent=p.task||'';m.name.replaceChildren(title,task);m.name.title=p.name+(p.task?' · '+p.task:'');
       m.bubble.setAttribute('aria-label',p.name+': '+p.message+' · 작업 확인');
     }
     document.getElementById('empty').style.display=pets.length?'none':'flex';
@@ -171,7 +229,7 @@
     if(visible)for(const m of models.values()){
       const max=Math.max(0,root.clientWidth-Math.min(136,root.clientWidth));
       const roaming=['idle','done'].includes(m.data.state);
-      if(roaming&&!reduced&&!m.el.matches(':hover, :focus-within')&&max>0){
+      if(!m.grab&&roaming&&!reduced&&!m.el.matches(':hover, :focus-within')&&max>0){
         if(m.pause>0){
           m.pause=Math.max(0,m.pause-dt);m.velocity=0;
           if(m.pause===0){
@@ -197,6 +255,7 @@
       }else{
         m.velocity=0;
       }
+      if(m.y!==undefined){m.y=Math.max(0,Math.min(Math.max(0,(root.clientHeight||240)-(m.el.offsetHeight||150)),m.y));m.el.style.bottom=m.y+'px';}
       m.x=Math.max(0,Math.min(max,m.x));m.el.style.transform=`translateX(${m.x}px)`;
       m.canvas.style.transform=roaming&&m.direction<0?'scaleX(-1)':'none';
       draw(m.canvas,m.data.provider,m.data.state,t+m.phase,m.data.character,Math.abs(m.velocity)>1);

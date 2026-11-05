@@ -7,6 +7,7 @@ final class Companion: NSObject, NSApplicationDelegate, WKScriptMessageHandler, 
     var timer: Timer?
     var boxes: [CGRect] = []
     var state: [String: Any] = ["type": "state", "pets": []]
+    var dragging = false
     var ready = false
     func applicationDidFinishLaunching(_ notification: Notification) {
         let controller = WKUserContentController()
@@ -27,7 +28,7 @@ final class Companion: NSObject, NSApplicationDelegate, WKScriptMessageHandler, 
             guard let self = self else { return }
             let mouse = NSEvent.mouseLocation
             let local = CGPoint(x: mouse.x - self.panel.frame.minX, y: self.panel.frame.maxY - mouse.y)
-            self.panel.ignoresMouseEvents = !self.boxes.contains { $0.contains(local) }
+            self.panel.ignoresMouseEvents = !self.dragging && !self.boxes.contains { $0.contains(local) }
         }
         DispatchQueue.global().async {
             while let line = readLine() {
@@ -43,7 +44,7 @@ final class Companion: NSObject, NSApplicationDelegate, WKScriptMessageHandler, 
     @objc func layout() {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let rect = screen.visibleFrame
-        panel.setFrame(NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: min(240, rect.height)), display: true)
+        panel.setFrame(NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height), display: true)
     }
     func emit(_ value: [String: Any]) {
         if let data = try? JSONSerialization.data(withJSONObject: value), let text = String(data: data, encoding: .utf8) { print(text); fflush(stdout) }
@@ -80,6 +81,7 @@ final class Companion: NSObject, NSApplicationDelegate, WKScriptMessageHandler, 
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let m = message.body as? [String: Any], let type = m["type"] as? String else { return }
+        if type == "dragging" { dragging = m["active"] as? Bool ?? false; return }
         if type == "bounds", let rows = m["boxes"] as? [[String: Double]] {
             boxes = rows.map { CGRect(x: $0["x"] ?? 0, y: $0["y"] ?? 0, width: $0["width"] ?? 0, height: $0["height"] ?? 0) }; return
         }

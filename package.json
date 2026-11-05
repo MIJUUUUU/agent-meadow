@@ -2,7 +2,7 @@
   "name": "agent-meadow",
   "displayName": "Agent Meadow · 에이전트 정원",
   "description": "Codex 토끼와 Claude 고양이가 함께 사는 작은 도트 정원",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "publisher": "agent-meadow-local",
   "license": "MIT",
   "engines": {
@@ -46,6 +46,10 @@
       {
         "command": "agentMeadow.returnDesktop",
         "title": "Agent Meadow: 바탕화면 동료 모두 돌려보내기"
+      },
+      {
+        "command": "agentMeadow.desktop",
+        "title": "Agent Meadow: 바탕화면으로 보내기"
       }
     ],
     "viewsContainers": {

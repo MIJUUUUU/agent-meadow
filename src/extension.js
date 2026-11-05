@@ -48,10 +48,16 @@ function activate(context) {
       if(m.type==='character')await chooseCharacter(m.id);
     }catch(e){vscode.window.showErrorMessage(e.message);}
   },()=>{desktopIds.clear();publish();},message=>output.appendLine('바탕화면: '+message));
-  async function desktopMenu(id) {
+  async function desktopMenu(id, direct=false) {
+    if(!id){
+      const available=[...pets.values()].filter(p=>!desktopIds.has(p.id));
+      if(!available.length){vscode.window.showInformationMessage('먼저 바탕화면으로 보낼 에이전트를 연결해 주세요.');return;}
+      const target=await vscode.window.showQuickPick(available.map(p=>({label:p.name,description:p.task,id:p.id})),{title:'바탕화면으로 보낼 에이전트'});
+      if(!target)return;id=target.id;
+    }
     if(!pets.has(id))return;
     if(process.platform!=='darwin'){vscode.window.showInformationMessage('바탕화면 동료는 macOS에서 사용할 수 있어요.');return;}
-    const action=await vscode.window.showQuickPick(['바탕화면으로 보내기','캐릭터 변경'],{title:pets.get(id).name});
+    const action=direct?'바탕화면으로 보내기':await vscode.window.showQuickPick(['바탕화면으로 보내기','캐릭터 변경'],{title:pets.get(id).name});
     if(action==='캐릭터 변경'){await chooseCharacter(id);return;}
     if(action!=='바탕화면으로 보내기')return;
     await desktop.start();
@@ -159,7 +165,7 @@ function activate(context) {
         if(m.type==='desktopMenu')await desktopMenu(m.id);
         if(m.type==='inspect' && pets.has(m.id)) await inspect(m.id);
         if(m.type==='character' && pets.has(m.id))await chooseCharacter(m.id);
-        if(m.type==='command' && ['codex','claude','connectExisting','character'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
+        if(m.type==='command' && ['codex','claude','connectExisting','character','desktop'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
       } catch(e) {vscode.window.showErrorMessage(e.message);}
     },null,context.subscriptions);
   }};
@@ -193,6 +199,7 @@ function activate(context) {
   context.subscriptions.push(output,status,vscode.window.registerWebviewViewProvider('agentMeadow.garden',provider,{webviewOptions:{retainContextWhenHidden:true}}),
     register('open',()=>vscode.commands.executeCommand('agentMeadow.garden.focus')),
     register('character',()=>chooseCharacter()),
+    register('desktop',()=>desktopMenu(undefined,true)),
     register('returnDesktop',()=>{desktopIds.clear();desktop.dispose();publish();}),
     register('connectExisting',async()=>{
       if(!vscode.workspace.isTrusted)return;
