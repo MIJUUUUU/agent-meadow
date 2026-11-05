@@ -3,6 +3,8 @@ from pathlib import Path
 import json, zipfile
 root = Path(__file__).resolve().parent.parent
 p = json.loads((root / 'package.json').read_text())
+if not (root / 'desktop/AgentMeadow').is_file():
+    raise SystemExit('Build the macOS companion first: sh scripts/build-desktop.sh')
 out = root / 'dist' / f"{p['name']}-{p['version']}.vsix"
 out.parent.mkdir(exist_ok=True)
 manifest = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -13,7 +15,7 @@ types = '''<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.op
 with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
     z.writestr('extension.vsixmanifest',manifest)
     z.writestr('[Content_Types].xml',types)
-    for item in ['package.json','README.md','LICENSE','src','media','scripts/claude-hook.js','docs/images/image.png']:
+    for item in ['package.json','README.md','LICENSE','src','media','desktop','scripts/claude-hook.js','docs/images/agent-meadow-panel.png','docs/images/agent-meadow-desktop.png']:
         source=root/item
         for f in sorted(source.rglob('*')) if source.is_dir() else [source]:
             if f.is_file(): z.write(f,'extension/'+str(f.relative_to(root)))

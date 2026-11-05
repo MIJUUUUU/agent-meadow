@@ -6,6 +6,7 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const {spawn} = require('node:child_process');
 const {Codex} = require('./codex');
+const {Desktop} = require('./desktop');
 const {claudeState} = require('./state');
 const {removeFamily} = require('./lifecycle');
 const {projectDirectory} = require('./project');
@@ -37,13 +38,32 @@ function activate(context) {
     return `${provider==='codex'?'Codex':'Claude'} · ${project}${count>1?' #'+count:''}`;
   }
   const config = () => vscode.workspace.getConfiguration('agentMeadow');
-  const publish = () => {view?.webview.postMessage({type:'state',pets:[...pets.values()]}); status.text = '$(heart) Meadow'+([...pets.values()].some(p=>p.state==='waiting') ? ' · 확인 필요' : '');};
+  const desktopIds = new Set();
+  const desktop = new Desktop(context.extensionPath, async m=>{
+    try {
+      if(m.type==='return'){desktopIds.delete(m.id);publish();if(!desktopIds.size)desktop.dispose();return;}
+      if(!desktopIds.has(m.id)||!pets.has(m.id))return;
+      await vscode.commands.executeCommand('agentMeadow.open');
+      if(m.type==='inspect')await inspect(m.id);
+      if(m.type==='character')await chooseCharacter(m.id);
+    }catch(e){vscode.window.showErrorMessage(e.message);}
+  },()=>{desktopIds.clear();publish();},message=>output.appendLine('바탕화면: '+message));
+  async function desktopMenu(id) {
+    if(!pets.has(id))return;
+    if(process.platform!=='darwin'){vscode.window.showInformationMessage('바탕화면 동료는 macOS에서 사용할 수 있어요.');return;}
+    const action=await vscode.window.showQuickPick(['바탕화면으로 보내기','캐릭터 변경'],{title:pets.get(id).name});
+    if(action==='캐릭터 변경'){await chooseCharacter(id);return;}
+    if(action!=='바탕화면으로 보내기')return;
+    await desktop.start();
+    if(pets.has(id)){desktopIds.add(id);publish();}
+  }
+  const publish = () => {view?.webview.postMessage({type:'state',pets:[...pets.values()].filter(p=>!desktopIds.has(p.id))});desktop.publish([...pets.values()].filter(p=>desktopIds.has(p.id))); status.text = '$(heart) Meadow'+([...pets.values()].some(p=>p.state==='waiting') ? ' · 확인 필요' : '');};
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 20);
   status.command = 'agentMeadow.open'; status.tooltip = '작은 에이전트 정원'; status.show();
   function remove(id) {
     removeFamily(pets,id,key=>{
       clearTimeout(restTimers.get(key));restTimers.delete(key);
-      requests.delete(key);queues.delete(key);
+      requests.delete(key);queues.delete(key);desktopIds.delete(key);
     });
     publish();
   }
@@ -136,6 +156,7 @@ function activate(context) {
     v.webview.onDidReceiveMessage(async m => {
       try {
         if(m.type==='ready') publish();
+        if(m.type==='desktopMenu')await desktopMenu(m.id);
         if(m.type==='inspect' && pets.has(m.id)) await inspect(m.id);
         if(m.type==='character' && pets.has(m.id))await chooseCharacter(m.id);
         if(m.type==='command' && ['codex','claude','connectExisting','character'].includes(m.command)) await vscode.commands.executeCommand('agentMeadow.'+m.command);
@@ -172,6 +193,7 @@ function activate(context) {
   context.subscriptions.push(output,status,vscode.window.registerWebviewViewProvider('agentMeadow.garden',provider,{webviewOptions:{retainContextWhenHidden:true}}),
     register('open',()=>vscode.commands.executeCommand('agentMeadow.garden.focus')),
     register('character',()=>chooseCharacter()),
+    register('returnDesktop',()=>{desktopIds.clear();desktop.dispose();publish();}),
     register('connectExisting',async()=>{
       if(!vscode.workspace.isTrusted)return;
       const folders=vscode.workspace.workspaceFolders||[];
@@ -261,7 +283,7 @@ function activate(context) {
       } catch(e) {client.dispose();throw e;}
     }),
     vscode.window.onDidCloseTerminal(t=>{for(const [id,term] of terminals) if(term===t){terminals.delete(id);remove(id);}}),
-    {dispose(){for(const watcher of observers.values())watcher.dispose();for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
+    {dispose(){desktop.dispose();for(const watcher of observers.values())watcher.dispose();for(const timer of restTimers.values())clearTimeout(timer);server.close();for(const client of clients.values())client.dispose();}}
   );
   publish();
 }

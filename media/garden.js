@@ -151,6 +151,7 @@
       let m=models.get(p.id);
       if(!m){
         const el=document.createElement('div'), bubble=document.createElement('button'), canvas=document.createElement('canvas'), name=document.createElement('span');
+        el.addEventListener('contextmenu',e=>{e.preventDefault();api.postMessage({type:'desktopMenu',id:p.id});});
         bubble.className='bubble';canvas.width=40;canvas.height=44;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','캐릭터 변경');canvas.title='클릭해서 캐릭터 변경';name.className='name';el.append(bubble,canvas,name);root.append(el);
         const inspect=()=>{api.postMessage({type:'inspect',id:p.id});};bubble.addEventListener('click',inspect);
         const change=()=>api.postMessage({type:'character',id:p.id});canvas.addEventListener('click',change);canvas.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();change();}});
