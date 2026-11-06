@@ -125,7 +125,6 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
         if(state==='working'){rect(9,32,23,6,'#6e7c90');rect(11,33,19,4,'#b9c5cf');rect(8,38,25,2,'#8d99ad');rect(19,34,3,2,cream);}
         if(state==='waiting'){rect(35,9,2,6,pink);rect(35,17,2,2,pink);}
         if(state==='thinking')for(let i=0;i<3;i++)rect(14+i*5,2,2,2,i===Math.floor(time/350)%3?cream:'#87758e');
-        if(state==='done'){rect(30,4,2,2,pink);rect(34,4,2,2,pink);rect(29,6,8,2,pink);rect(31,8,4,2,pink);rect(32,10,2,1,pink);}
       }
       c.restore();return;
     }
@@ -161,7 +160,6 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
         else if(state==='waiting'){rect(30,25-frame*2,4,6,coat);rect(35,8,2,6,pink);rect(35,16,2,2,pink);}
         else {rect(10,32,4,4,coat);rect(27,32,4,4,coat);}
         if(state==='thinking')for(let i=0;i<3;i++)rect(15+i*5,3,2,2,i===Math.floor(time/350)%3?cream:'#87758e');
-        if(state==='done'){rect(31,3,2,2,pink);rect(35,3,2,2,pink);rect(30,5,8,2,pink);rect(32,7,4,2,pink);rect(33,9,2,1,pink);}
       }
       c.restore();return;
     }
@@ -215,7 +213,6 @@ header{overflow-x:auto;flex-shrink:0}nav{flex-shrink:0;white-space:nowrap}
         if(state==='waiting'){rect(34,7,2,6,'#f0c4d3');rect(34,15,2,2,'#f0c4d3');}
       }
       if(state==='thinking'){for(let i=0;i<3;i++)rect(15+i*5,0,2,2,i===Math.floor(time/350)%3?'#ead5e5':'#87758e');}
-      if(state==='done'){rect(31,3,2,2,pink);rect(35,3,2,2,pink);rect(30,5,8,2,pink);rect(32,7,4,2,pink);rect(33,9,2,1,pink);}
     }
     c.restore();
   }

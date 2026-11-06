@@ -16,7 +16,7 @@ Codex와 Claude Code의 작업 상태를 귀여운 도트 캐릭터로 보여주
 ## 설치
 
 1. VS Code에서 명령 팔레트 (`⌘⇧P`) → **Extensions: Install from VSIX…**.
-2. `dist/agent-meadow-0.2.3.vsix` 선택.
+2. `dist/agent-meadow-0.2.4.vsix` 선택.
 3. 업데이트했다면 **Developer: Reload Window** 실행.
 4. 작업 폴더를 열고 **Agent Meadow: 정원 열기** 실행.
 5. **기존 대화 연결**로 대화를 선택하거나 **＋ Codex / ＋ Claude**로 새 작업을 시작하세요.
@@ -107,7 +107,7 @@ Codex CLI가 설치·로그인되어 있어야 합니다. `agentMeadow.codexPath
 ```bash
 npm test                       # 상태·연결·산책·동반 프로세스 테스트
 python3 scripts/preview.py      # 빈 패널 디자인 미리보기
-python3 scripts/package.py      # dist/agent-meadow-0.2.3.vsix 생성
+python3 scripts/package.py      # dist/agent-meadow-0.2.4.vsix 생성
 ```
 
 네이티브 앱을 수정했으면 macOS + Xcode Command Line Tools 환경에서 먼저 빌드하세요.
